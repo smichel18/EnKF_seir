@@ -21,6 +21,7 @@ program seir
    use m_chisquared
    use m_readvaccines
    use m_readvariant
+   use m_readvariantcond
 
    implicit none
    integer i,ic,j
@@ -46,6 +47,7 @@ program seir
    call iniens(ens,enspar)                     ! Initialize ensemble of models
    call readvaccines                           ! Reading vaccination data
    call readvariant                            ! Reading variant data
+   call readvariantcond()
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Prior ensemble prediction
@@ -111,6 +113,7 @@ subroutine f(neqq, t, y, ydot)
    use m_readinfile
    use m_readvaccines
    use m_readvariant
+   use m_readvariantcond
    implicit none
    integer neqq
    real t
@@ -120,8 +123,8 @@ subroutine f(neqq, t, y, ydot)
    real R(na,na)
    real dt
    real vacc(na)
-!   real vari
    integer i,ia,ic,jc,ir
+   real newfrac
 
    dt= time/real(nt-1)
    i= min(int(t/dt), rdim)
@@ -172,10 +175,61 @@ subroutine f(neqq, t, y, ydot)
          ydot%group(ic)%E  = ydot%group(ic)%E  &
                            + (1.0/p%Tinf) * (Ntot(jc)/Ntot(ic)) * RC(ic,jc,ir) * matmul(R,y%group(jc)%I) * y%group(ic)%S
       enddo
+
+
       ydot%group(ic)%I  =    (1.0/p%Tinc ) * y%group(ic)%E   - (1.0/p%Tinf) * y%group(ic)%I
-      ydot%group(ic)%Qm =  - (1.0/p%Trecm) * y%group(ic)%Qm  + (1.0/p%Tinf) * dot_product(pm(:,ic),y%group(ic)%I)
-      ydot%group(ic)%Qs =  - (1.0/p%Thosp) * y%group(ic)%Qs  + (1.0/p%Tinf) * dot_product(ps(:,ic),y%group(ic)%I)
-      ydot%group(ic)%Qf =  - (1.0/p%Thosp) * y%group(ic)%Qf  + (1.0/p%Tinf) * dot_product(pf(:,ic),y%group(ic)%I)
+
+      do ia=1,na
+         if (vacc(ia) < 0.0) then
+            newfrac = varcond(ic)%vaccinated * varcond(ic)%V_qm + (1.0 - varcond(ic)%vaccinated)*1.0
+            print *,'Anewfrac=',newfrac
+         else
+            newfrac = 1.0
+         endif
+         ydot%group(ic)%Qm = - (1.0/p%Trecm) * y%group(ic)%Qm + newfrac/p%Tinf * dot_product(pm(:,ic),y%group(ic)%I)
+
+         if (vacc(ia) < 0.0) then
+            newfrac = varcond(ic)%vaccinated * varcond(ic)%V_qs + (1.0 - varcond(ic)%vaccinated)*1.0
+            print *,'Bnewfrac=',newfrac
+         else
+            newfrac = 1.0
+         endif
+         ydot%group(ic)%Qs =  - (1.0/p%Thosp) * y%group(ic)%Qs + newfrac/p%Tinf * dot_product(ps(:,ic),y%group(ic)%I)
+
+         if (vacc(ia) < 0.0) then
+            newfrac = varcond(ic)%vaccinated * varcond(ic)%V_qf + (1.0 - varcond(ic)%vaccinated)*1.0
+            print *,'Cnewfrac=',newfrac
+         else
+            newfrac = 1.0
+         endif
+         ydot%group(ic)%Qf =  - (1.0/p%Thosp) * y%group(ic)%Qf + newfrac/p%Tinf * dot_product(pf(:,ic),y%group(ic)%I)
+      enddo
+
+!      do ia=1,na
+!         if (vacc(ia) < 0.0) ydot%group(ic)%Qs =  - (1.0/p%Thosp) * y%group(ic)%Qs &
+!                                                + ((varcond(Cic)%vaccinated * varcond(ic)%V_qs/p%Tinf) &
+!                                                + (1 - varcond(ic)%vaccinated)*1.0/p%Tinf) &
+!                                                * dot_product(ps(:,ic),y%group(ic)%I)
+!         if (vacc(ia) > 0.0) ydot%group(ic)%Qs =  - (1.0/p%Thosp) * y%group(ic)%Qs &
+!                                                + (1.0/p%Tinf) * dot_product(ps(:,ic),y%group(ic)%I)
+!         if (vacc(ia) == 0.0) ydot%group(ic)%Qs =  - (1.0/p%Thosp) * y%group(ic)%Qs &
+!                                               + (1.0/p%Tinf) * dot_product(ps(:,ic),y%group(ic)%I)
+!      enddo
+!      do ia=1,na
+!         if (vacc(ia) < 0.0) ydot%group(ic)%Qf =  - (1.0/p%Thosp) * y%group(ic)%Qf &
+!                                            + ((varcond(ic)%vaccinated * varcond(ic)%V_qf/p%Tinf) &
+!                                            + (1 - varcond(ic)%vaccinated)*1.0/p%Tinf) &
+!                                            * dot_product(pf(:,ic),y%group(ic)%I)
+!         if (vacc(ia) > 0.0) ydot%group(ic)%Qf =  - (1.0/p%Thosp) * y%group(ic)%Qf &
+!                                            + (1.0/p%Tinf) * dot_product(pf(:,ic),y%group(ic)%I)
+!         if (vacc(ia) == 0.0) ydot%group(ic)%Qf =  - (1.0/p%Thosp) * y%group(ic)%Qf &
+!                                                + (1.0/p%Tinf) * dot_product(pf(:,ic),y%group(ic)%I)
+!      enddo
+      
+      !ydot%group(ic)%Qm =  - (1.0/p%Trecm) * y%group(ic)%Qm + (1.0/p%Tinf) * dot_product(pm(:,ic),y%group(ic)%I)
+      !ydot%group(ic)%Qs =  - (1.0/p%Thosp) * y%group(ic)%Qs + (1.0/p%Tinf) * dot_product(ps(:,ic),y%group(ic)%I)
+      !ydot%group(ic)%Qf =  - (1.0/p%Thosp) * y%group(ic)%Qf + (1.0/p%Tinf) * dot_product(pf(:,ic),y%group(ic)%I)
+      
       ydot%group(ic)%Hs =    (1.0/p%Thosp) * y%group(ic)%Qs  - (1.0/p%Trecs) * y%group(ic)%Hs
       ydot%group(ic)%Hf =    (hos/p%Thosp) * y%group(ic)%Qf  - (1.0/p%Tdead) * y%group(ic)%Hf
       ydot%group(ic)%C  =    ((1.0-hos)/p%Thosp) * y%group(ic)%Qf - (1.0/p%Tdead) * y%group(ic)%C
@@ -184,7 +238,7 @@ subroutine f(neqq, t, y, ydot)
       ydot%group(ic)%D  =    (1.0/p%Tdead) * y%group(ic)%Hf  + (1.0/p%Tdead) * y%group(ic)%C
    enddo
 
-   !print *,'sum ydot and y (0.0 and 1.0)',sum(ydot),sum(y)/real(nc)
+   print *,'sum ydot and y (0.0 and 1.0)',sum(ydot),sum(y)/real(nc)
 
 end subroutine
  
