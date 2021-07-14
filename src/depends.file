@@ -96,6 +96,13 @@ m_readvaccines.o:      makefile
 m_readvaccines.o:      m_getday.o
 m_readvaccines.o:      mod_dimensions.o
 m_readvaccines.o:      MODEL.CPP
+m_readvariantcond.o:      makefile
+m_readvariantcond.o:      mod_dimensions.o
+m_readvariantcond.o:      MODEL.CPP
+m_readvariantcond.o:      mod_parameters.o
+m_readvariantcond.o:      mod_params.o
+m_readvariantcond.o:      mod_states.o
+m_readvariantcond.o:      m_readagegroups.o
 m_readvariant.o:      makefile
 m_readvariant.o:      m_getday.o
 m_readvariant.o:      mod_dimensions.o
@@ -148,6 +155,7 @@ seir.o:      m_readagegroups.o
 seir.o:      m_readinfile.o
 seir.o:      m_readinicond.o
 seir.o:      m_readvaccines.o
+seir.o:      m_readvariantcond.o
 seir.o:      m_readvariant.o
 seir.o:      m_Rmatrix.o
 seir.o:      m_Rprior.o

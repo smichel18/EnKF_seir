@@ -1,6 +1,4 @@
 module m_readvariantcond
-
-
 use mod_dimensions
 
 type varcond_data

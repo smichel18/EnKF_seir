@@ -6,6 +6,7 @@ subroutine solve(ens,enspar,j)
    use mod_params
    use mod_parameters
    use m_pfactors
+   use m_readvariantcond
    implicit none
    external f,jac
    integer, intent(in) :: j
@@ -14,6 +15,7 @@ subroutine solve(ens,enspar,j)
    type(states) y
 
    real t,dt,tout
+   real fac
 
    integer :: itol=1
    real    :: rtol=1.0E-5
@@ -25,6 +27,7 @@ subroutine solve(ens,enspar,j)
    integer :: mf=10
    integer lrw,liw
    integer i
+   integer ic
 
    real,    allocatable  :: rwork(:) 
    integer, allocatable  :: iwork(:)  
@@ -41,11 +44,26 @@ subroutine solve(ens,enspar,j)
    p=enspar(j)
    y=ens(0,j) 
 !   print *,'sum y (1.0)',sum(y)
-   call pfactors 
+   call pfactors
 
    istate=1
    do i=1,nt 
       t=0+real(i-1)*dt
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Time dependence (linear decline) of CFR
+      do ic=1,nc
+!          fac = varcond(ic)%vaccinated * varcond(ic)%V_qs + (1.0 - varcond(ic)%vaccinated)*1.0
+!          fac = varcond(ic)%vaccinated * varcond(ic)%V_qf + (1.0 - varcond(ic)%vaccinated)*1.0
+!         p%sev(ic)=fac*enspar(j)%sev(ic)
+!         p%CFR(ic)=fac*enspar(j)%CFR(ic)
+!         p%sev(ic)=max(enspar(j)%sev(ic)*(1.0-t/2000.0),0.0001)
+!         p%CFR(ic)=max(enspar(j)%CFR(ic)*(1.0-t/2000.0),0.0001)
+         if (j == 1 .and. mod(i,10) == 0)  print *,'cfr: ',t,p%CFR(ic)
+      enddo
+      call pfactors
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
       tout=t+dt
       call slsode(f,neq,y,t,tout,itol,rtol,atol,itask,istate,iopt,rwork,lrw,iwork,liw,jac,mf)
       ens(i,j)=y
